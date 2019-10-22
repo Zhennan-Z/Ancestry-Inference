@@ -8,8 +8,8 @@ if( length(args) != 1 ) stop("please provide one arguments (prefix)")
 prefix <- args[1]
 
 pc <- read.table(paste0(prefix, "pc.txt"), header = TRUE)
-phe <- read.table(paste0(prefix, "_popref.txt"), header = TRUE)
-eigvalue <- read.table("EigenValues.txt")
+phe <- read.table(paste0(prefix, "_popref.txt"), header = TRUE, stringsAsFactors=FALSE)
+eigvalue <- read.table(paste0(prefix,"EigenValues.txt"))
 train.data <- pc[pc$AFF == 1, grep("IID|PC", colnames(pc))]
 
 eigvalue <- as.matrix(eigvalue)
@@ -17,18 +17,22 @@ eigvalue <- as.matrix(eigvalue)
 disfunc <- function(i){
   df <- pc[i,grep("PC", colnames(pc))]
   # diff <- df[rep(seq_len(nrow(df)), each = nrow(train.data)), ] - train.data[,grep("PC", colnames(train.data))]
-  diff <- df[rep(1, nrow(train.data)), ] - train.data[,grep("PC", colnames(train.data))]
+  diff <- df[rep(1, each = nrow(train.data)), ] - train.data[,grep("PC", colnames(train.data))]
   newdf.one <- eigvalue%*%t(as.matrix(diff^2))
   return(newdf.one)
-  }
-ptm <- proc.time()
+}
+
 newdf <- t(sapply(1:nrow(pc), disfunc))
-proc.time() - ptm
+
+
 train.x <- newdf [1:nrow(train.data),]
-train.y <- pop[, "Population"]
+train.y <- phe[, "Population"]
+
+pop <- phe[, c("IID", "Population")]
+train.phe <- merge(train.data, pop, by = "IID")
 
 test.data.ids <- pc[pc$AFF == 2, c("FID","IID")]
-test.data <- cbind(test.data.ids,newdf[-c(1:nrow(train.data)), ])
+test.data <- cbind(test.data.ids, newdf[-c(1:nrow(train.data)), ])
 
 
 if(require("doParallel", quietly=TRUE)){
@@ -58,7 +62,6 @@ best.cost <- tuneresults(2^(seq(-10, 10, by = 0.5)))
 print(paste("Grid search with a wide range, ends at", date()))
 print(paste("The best cost is", round(best.cost, 6), "after the wide grid search"))
 print(paste("Grid search with a small range, starts at", date()))
-print(paste("The best cost is", round(best.cost, 6), "after the wide grid search"))
 more.cost <- 2^seq(log2(best.cost) - 0.5, log2(best.cost) + 0.5, by = 0.05)
 best.cost <- tuneresults(more.cost)
 print(paste("Grid search with a small range, ends at", date()))
@@ -70,7 +73,7 @@ pred.pop <- predict(mymod, test.data[, !colnames(test.data) %in%c("FID","IID")],
 test.data$PRED <- pred.pop
 class.prob <- attr(pred.pop, "probabilities")
 print(paste("Prepare the summary file, starts at", date()))
-orders <- t(apply(class.prob, 1, function(x) order(x,decreasing=T)))
+orders <- t(apply(class.prob, 1, function(x) order(x, decreasing=T)))
 orders.class <- t(apply(orders, 1, function(x) colnames(class.prob)[x]))
 orders.probs <- t(sapply(1:nrow(class.prob), function(x) class.prob[x, orders[x,]]))
 check.cumsum <- t(apply(orders.probs, 1, cumsum))
@@ -82,7 +85,7 @@ colnames(pred.out)[5:10] <- c("Ancestry", "Pr_Anc", "Anc_1st", "Anc_2nd", "Pr_1s
 
 min.test <- newdf[-c(1:nrow(train.data)),]
 min.test.index <- apply(min.test,1, function(x) which.min(x))
-MinDisGrp  <- phe[min.test.index, "Population"]
+MinDisGrp  <- phe[min.test.index,"Population"]
 pred.out <- cbind(pred.out, MinDisGrp)
 print(paste("summary file is ready ", date()))
 write.table(pred.out, paste0(prefix, "_InferredAncestry_DistanceSVM.txt"), sep = "\t", quote = FALSE, row.names = FALSE)
@@ -99,12 +102,12 @@ for (i in 1:length(train.groups)){
 train.colors <- rep(0, nrow(train.phe))
 for (i in 1:length(train.groups)){
   train.colors[train.phe$Population==train.groups[i]] <- Palette[i]}
-x.adjust <- (max(train.phe$PC1, pred.out$PC1) - min(train.phe$PC1, pred.out$PC1))/10
-x.low <- min(train.phe$PC1, pred.out$PC1) - x.adjust
-x.high <- max(train.phe$PC1, pred.out$PC1) + x.adjust
-y.adjust <- (max(train.phe$PC2, pred.out$PC2) - min(train.phe$PC2, pred.out$PC2))/10
-y.low <- min(train.phe$PC2, pred.out$PC2) - y.adjust
-y.high <- max(train.phe$PC2, pred.out$PC2) + y.adjust
+x.adjust <- (max(train.data$PC1, pred.out$PC1) - min(train.data$PC1, pred.out$PC1))/10
+x.low <- min(train.data$PC1, pred.out$PC1) - x.adjust
+x.high <- max(train.data$PC1, pred.out$PC1) + x.adjust
+y.adjust <- (max(train.data$PC2, pred.out$PC2) - min(train.data$PC2, pred.out$PC2))/10
+y.low <- min(train.data$PC2, pred.out$PC2) - y.adjust
+y.high <- max(train.data$PC2, pred.out$PC2) + y.adjust
 postscript(paste0(prefix, "_ancestryplot_DistanceSVM.ps"), paper="letter", horizontal=T)
 ncols <- min(3, ceiling(length(unique(pred.out$Ancestry))/2))
 if(!require(ggplot2, quietly=TRUE)) {
@@ -117,9 +120,9 @@ if(!require(ggplot2, quietly=TRUE)) {
     plot(subdata$PC1, subdata$PC2, col = unique(pred.colors)[unique(pred.out$Ancestry) == i],
          xlim = c(x.low, x.high), ylim = c(y.low, y.high), xlab = "PC1", ylab = "PC2", main = paste0(i, " (N=", nrow(subdata), ")"))}
   par(mfrow = c(1, 1))
-  plot(train.phe$PC1, train.phe$PC2, col = train.colors, xlim = c(x.low, x.high), ylim = c(y.low, y.high), xlab = "PC1", ylab = "PC2", main="Populations in Reference", pch = 16)
-  legend("topright", legend = sort(unique(train.phe$Population)),
-         col = unique(train.colors)[order(unique(train.phe$Population))], pch = 16, cex = 1)
+  plot(train.data$PC1, train.data$PC2, col = train.colors, xlim = c(x.low, x.high), ylim = c(y.low, y.high), xlab = "PC1", ylab = "PC2", main="Populations in Reference", pch = 16)
+  legend("topright", legend = sort(unique(train.y)),
+         col = unique(train.colors)[order(unique(train.y))], pch = 16, cex = 1)
 } else {
   p <- ggplot(pred.out, aes(x = PC1, y = PC2))
   p <- p + geom_point(aes(colour = factor(Ancestry, levels = sort(unique(Ancestry))))) +
