@@ -16,18 +16,19 @@ eigvalue <- as.matrix(eigvalue)
 
 disfunc <- function(i){
   df <- pc[i,grep("PC", colnames(pc))]
-  diff <- df[rep(seq_len(nrow(df)), each = nrow(train.data)), ] - train.data[,grep("PC", colnames(train.data))]
+  # diff <- df[rep(seq_len(nrow(df)), each = nrow(train.data)), ] - train.data[,grep("PC", colnames(train.data))]
+  diff <- df[rep(1, nrow(train.data)), ] - train.data[,grep("PC", colnames(train.data))]
   newdf.one <- eigvalue%*%t(as.matrix(diff^2))
   return(newdf.one)
   }
+ptm <- proc.time()
 newdf <- t(sapply(1:nrow(pc), disfunc))
-
-
+proc.time() - ptm
 train.x <- newdf [1:nrow(train.data),]
 train.y <- pop[, "Population"]
 
-test.data <- pc[pc$AFF == 2, c("FID","IID")]
-test.data <- cbind(test.data,newdf[-c(1:nrow(train.data)), ])
+test.data.ids <- pc[pc$AFF == 2, c("FID","IID")]
+test.data <- cbind(test.data.ids,newdf[-c(1:nrow(train.data)), ])
 
 
 if(require("doParallel", quietly=TRUE)){
@@ -81,15 +82,11 @@ colnames(pred.out)[5:10] <- c("Ancestry", "Pr_Anc", "Anc_1st", "Anc_2nd", "Pr_1s
 
 min.test <- newdf[-c(1:nrow(train.data)),]
 min.test.index <- apply(min.test,1, function(x) which.min(x))
-MinDisGrp  <- phe[min.test.index,"Population"]
+MinDisGrp  <- phe[min.test.index, "Population"]
 pred.out <- cbind(pred.out, MinDisGrp)
 print(paste("summary file is ready ", date()))
 write.table(pred.out, paste0(prefix, "_InferredAncestry_DistanceSVM.txt"), sep = "\t", quote = FALSE, row.names = FALSE)
 print(paste("Results are saved to", paste0(prefix, "_InferredAncestry_DistanceSVM.txt")))
-
-
-
-
 
 print("Generate plots")
 pred.out$Ancestry <- as.character(pred.out$Ancestry)
