@@ -46,7 +46,7 @@ ui <- fluidPage( #####
                                             #SELECTOR
                                             selectInput(inputId = "Population", label = "Population", choices = unique(as.character(kg$Population))),
                                             
-                                            
+                                           
                                             
                                             #pickerInput: works like SelectInput, but provides select/deselect         all functionality
                                             #PICKER
@@ -109,4 +109,3 @@ ui <- fluidPage( #####
                                          )
                                )
                  ))
-)
