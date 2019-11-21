@@ -8,3 +8,9 @@ Here we implement a support-vector-machine(SVM)-based method to identify the mos
 ```{bash}
 king -b reference,studydata --mds --projection --rplot
 ```
+## Simply demo for the KG Reference
+
+```{bash}
+library(shiny)
+runGitHub('Ancestry-Inference','Zhennan-Z')
+```
