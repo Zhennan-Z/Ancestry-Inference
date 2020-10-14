@@ -11,9 +11,7 @@ option_list = list(
   make_option(c("--rangevalue"), type="integer", default=3, 
               help="range value", metavar="integer"),
   make_option(c("-n","--numberpc"), type="integer", default=30,
-              help="number of PCs to be selected [default %default]", metavar="integer"),
-  make_option(c("--cutoff"), type="integer", default=0.90, 
-              help="cutoff value for the most likely group", metavar="integer")
+              help="number of PCs to be selected [default %default]", metavar="integer")
 ) 
 opt_parser = OptionParser(option_list=option_list)
 opt = parse_args(opt_parser)
@@ -27,7 +25,7 @@ prefix <- opt$prefix
 npcs <- opt$numberpc
 k <- opt$numfolds
 rangeval <- opt$rangevalue
-cutoff <- opt$cutoff
+
 
 pc <- read.table(paste0(prefix, "pc.txt"), header = TRUE)
 phe <- read.table(paste0(prefix, "_popref_asn.txt"), header = TRUE)
@@ -105,10 +103,10 @@ print(paste("Prepare the summary file, starts at", date()))
 orders <- t(apply(class.prob, 1, function(x) order(x,decreasing=T)))
 orders.class <- t(apply(orders, 1, function(x) colnames(class.prob)[x]))
 orders.probs <- t(sapply(1:nrow(class.prob), function(x) class.prob[x, orders[x,]]))
-dat$Ancestry[orders.probs[,1] < cutoff] <- "Missing"
+dat$Ancestry[orders.probs[,1] < 0.9] <- "Missing"
 
 check.cumsum <- t(apply(orders.probs, 1, cumsum))
-temp <- apply(check.cumsum, 1, function(x) which(x > cutoff)[1])
+temp <- apply(check.cumsum, 1, function(x) which(x > 0.9)[1])
 pred.class <- sapply(1:length(temp), function(x) paste(orders.class[x, 1:as.numeric(temp[x])], collapse = ";"))
 pred.prob <- sapply(1:length(temp), function(x) paste(round(orders.probs[x, 1:as.numeric(temp[x])], 3), collapse = ";"))
 pred.out <- cbind(dat[, c("FID", "IID", "PC1", "PC2","AFF","Ancestry")], pred.class, pred.prob)
