@@ -11,7 +11,7 @@ option_list = list(
   make_option(c("--rangevalue"), type="integer", default=3, 
               help="range value", metavar="integer"),
   make_option(c("-n","--numberpc"), type="integer", default=30,
-              help="number of PCs to be selected [default %default]", metavar="integer")
+              help="number of PCs to be selected", metavar="integer")
 ) 
 opt_parser = OptionParser(option_list=option_list)
 opt = parse_args(opt_parser)
